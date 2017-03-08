@@ -1,0 +1,28 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{{.Title}}</title>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+</head>
+<body style="font-family:Arial;">
+  <h1>{{.Title}}</h1>
+    <table id="logTable">
+      <col width="300">
+    <tr>
+      <td><b>Time</b></td><td><b>Message</b></td>
+    </tr>
+  </table>
+  <script>
+  (function poll(){
+  $.ajax({ url: "/api/step/latest/", success: function(data){
+      console.log(data)
+      var row = document.getElementById("logTable").insertRow(1);
+      row.insertCell(0).innerHTML = data.timeStamp
+      row.insertCell(1).innerHTML = data.message
+  }, dataType: "json", complete: poll, timeout: 30000 });
+})();
+  </script>
+</body>
+</html>
