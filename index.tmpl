@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>{{.Title}}</title>
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
 </head>
 <body style="font-family:Arial;">
   <h1>{{.Title}}</h1>
@@ -15,14 +14,22 @@
     </tr>
   </table>
   <script>
-  (function poll(){
-  $.ajax({ url: "/api/step/latest/", success: function(data){
-      console.log(data)
-      var row = document.getElementById("logTable").insertRow(1);
-      row.insertCell(0).innerHTML = data.timeStamp
-      row.insertCell(1).innerHTML = data.message
-  }, dataType: "json", complete: poll, timeout: 30000 });
-})();
+(function poll() {
+var xhr = new XMLHttpRequest();
+ xhr.responseType = 'json';//or 'text', 'json', ect. there are other types.
+ xhr.timeout = 30000;//milliseconds until timeout fires. (1 minute)
+ xhr.onload = function(e2){
+   data = xhr.response
+   var row = document.getElementById("logTable").insertRow(1);
+   row.insertCell(0).innerHTML = data.timeStamp
+   row.insertCell(1).innerHTML = data.message
+ }
+ xhr.ontimeout = function(){
+   poll()
+ }
+ xhr.open('GET', "/api/step/latest/", true);
+ xhr.send();
+ })()
   </script>
 </body>
 </html>
