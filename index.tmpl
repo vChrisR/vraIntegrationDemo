@@ -16,13 +16,14 @@
   <script>
 (function poll() {
 var xhr = new XMLHttpRequest();
- xhr.responseType = 'json';//or 'text', 'json', ect. there are other types.
- xhr.timeout = 30000;//milliseconds until timeout fires. (1 minute)
+ xhr.responseType = 'json';
+ xhr.timeout = 30000;
  xhr.onload = function(e2){
    data = xhr.response
    var row = document.getElementById("logTable").insertRow(1);
    row.insertCell(0).innerHTML = data.timeStamp
    row.insertCell(1).innerHTML = data.message
+   poll()
  }
  xhr.ontimeout = function(){
    poll()

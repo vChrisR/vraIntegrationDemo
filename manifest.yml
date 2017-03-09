@@ -1,0 +1,11 @@
+applications:
+- name: vmug2017
+  instances: 1
+  memory: 265M
+  disk_quota: 512M
+  routes:
+  - route: vmug2017.cfapps.io
+  env:
+    APIPASS: complicatedapipassword
+    APIUSER: api
+  stack: cflinuxfs2
