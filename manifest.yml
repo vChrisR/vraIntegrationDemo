@@ -9,3 +9,5 @@ applications:
     APIPASS: complicatedapipassword
     APIUSER: api
   stack: cflinuxfs2
+  services:
+    - vraIntegrationDemo

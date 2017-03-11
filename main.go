@@ -12,6 +12,7 @@ import (
 	"vraIntegrationDemo/config"
 
 	"github.com/gorilla/mux"
+	redis "gopkg.in/redis.v5"
 )
 
 type tLogContent struct {
@@ -28,44 +29,48 @@ var (
 	logContent       tLogContent
 	qChannel         chan chan string
 	apiUser, apiPass string
+	redisPubClient   *redis.Client
 )
 
 func stepReceiver(w http.ResponseWriter, r *http.Request) {
+	//authentication
 	user, pass, ok := r.BasicAuth()
 	if !ok || user != apiUser || pass != apiPass {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
+
+	//Get the body
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(400)
 		return
 	}
 
+	//parse the body
 	err = json.Unmarshal(body, &logContent)
 	if err != nil {
 		panic(err)
 	}
+
+	//Add timestamp
 	logContent.TimeStamp = time.Now().Format(time.RFC3339)
 
+	//convert back to json string
 	var contentString []byte
 	contentString, err = json.Marshal(logContent)
 	if err != nil {
 		panic(err)
 	}
 
-	go func() {
-		for {
-			select {
-			case responseChan := <-qChannel:
-				responseChan <- string(contentString)
-			default:
-				return
-			}
-		}
-	}()
+	//publish in redis
+	err = redisPubClient.Publish("vraintegrationdemo", string(contentString)).Err()
+	if err != nil {
+		panic(err)
+	}
 
-	fmt.Println(string(contentString))
+	fmt.Println("pub: " + string(contentString))
+
 	w.WriteHeader(201)
 }
 
@@ -94,15 +99,47 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	router := mux.NewRouter()
-	qChannel = make(chan chan string)
-	apiUser, apiPass = config.GetAPICreds()
-
 	siteContent.Title = "vRA Integration Demo"
+	fmt.Println("Starting ", siteContent.Title)
 
+	redisPubClient = redisNewClient()
+	redisSubClient := redisNewClient()
+	fmt.Println("Connected to Redis!")
+
+	sub, err := redisSubClient.Subscribe("vraintegrationdemo")
+	if err != nil {
+		panic(err)
+	}
+	defer sub.Close()
+
+	fmt.Println("Subscribing to Redis.")
+	qChannel = make(chan chan string)
+	go func() {
+		for {
+			message, suberr := sub.ReceiveMessage()
+			fmt.Println("sub:" + message.Payload)
+			if suberr != nil {
+				panic(err)
+			}
+
+			select {
+			case responseChan := <-qChannel:
+				responseChan <- string(message.Payload)
+			default:
+			}
+		}
+	}()
+
+	fmt.Println("Starting web server now.")
+	apiUser, apiPass = config.GetAPICreds()
+	router := mux.NewRouter()
 	router.HandleFunc("/api/step/latest/", getStepLongPoll).Methods("GET")
 	router.HandleFunc("/api/step/", stepReceiver).Methods("POST")
 	router.HandleFunc("/", rootHandler)
+
 	http.Handle("/", router)
-	http.ListenAndServe(":"+config.GetPort(), nil)
+	err = http.ListenAndServe(":"+config.GetPort(), nil)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
